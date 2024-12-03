@@ -21,7 +21,7 @@ print(f"Number of edges: {num_edges}")
 nodes = list(graph.nodes())
 
 start_node = nodes[0]
-end_node = nodes[100]
+end_node = nodes[1020]
 
 # Run our implementation
 distances, previous = dijkstra(graph, start_node, end_node)
