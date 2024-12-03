@@ -1,23 +1,28 @@
 # I M P O R T S   &   D E P E N D E N C I E S ----------------------
 import heapq
-from typing import Dict, List, Set, Tuple, Optional, Mapping
+from typing import Dict, List, Set, Tuple, Optional, Mapping, Callable
 
 
 # F U N C T I O N S ------------------------------------------------
 
-# Dijkstras Algorithm Implementation
-def dijkstra(graph, start_node: int, end_node: int) -> Tuple[Dict[int, float], Dict[int,Optional[int]]]:
+# Manhattan Heuristic
+def manhattan_heuristic(node1: int, node2: int, node_positions: Dict[int, Tuple[int, int]]) -> float:
+    x1, y1 = node_positions[node1]
+    x2, y2 = node_positions[node2]
+    return abs(x1 - x2) + abs(y1 - y2)
 
+# A* Algorithm Implementation
+def a_star(graph, start_node: int, end_node: int, heuristic: Callable[[int, int], float]) -> Tuple[Dict[int, float], Dict[int,Optional[int]]]:
     # Set all unknown node distances to infinity
     distances = {node: float('infinity') for node in graph.nodes()}
 
     # Set distance from starting_node to starting_node to 0
-    distances[start_node] = 0;
+    distances[start_node] = 0
 
     # Dictionary to store previous nodes for optimal path
     previous: Dict[int, Optional[int]] = {node: None for node in graph.nodes()}
 
-    # Priority queue to store distance to node pairs as we discover
+    # Priority queu to store distance to node pairs as we discover
     # Add one item start_node to start_node distance of 0
     pq = [(0, start_node)]
 
@@ -28,7 +33,7 @@ def dijkstra(graph, start_node: int, end_node: int) -> Tuple[Dict[int, float], D
     while pq:
 
         # Unpack from pq using heapop()
-        current_distance, current_node = heapq.heappop(pq)
+        current_f, current_node = heapq.heappop(pq)
 
         # Check if we are at end node
         if current_node == end_node:
@@ -52,15 +57,22 @@ def dijkstra(graph, start_node: int, end_node: int) -> Tuple[Dict[int, float], D
             # Get the first edge and get length attribute
             edge_length = edge_data[0]['length']
 
-            distance = current_distance + edge_length
+            # Calculate actual cost to neighbor
+            g_cost = distances[current_node] + edge_length
+            
+            # Calculate heuristic estimate
+            h_cost = heuristic(neighbor, end_node)
 
+            # Calculate estimated cost
+            f_cost = g_cost + h_cost
+            
             # Perform Relaxation
-            if distance < distances[neighbor]:
-                distances[neighbor] = distance
+            if f_cost < distances[neighbor]:
+                distances[neighbor] = g_cost
                 previous[neighbor] = current_node
 
                 # Push new edge into pq
-                heapq.heappush(pq, (distance, neighbor))
+                heapq.heappush(pq, (f_cost, neighbor))
 
 
     return distances, previous

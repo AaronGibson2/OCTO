@@ -2,8 +2,10 @@
 import matplotlib.pyplot as plt
 import networkx
 import osmnx as ox
+import time
 
 from dijkstras import dijkstra, reconstruct_path
+from a_star import a_star, manhattan_heuristic
 
 # M A P   S E T U P ------------------------------------------------
 
@@ -21,14 +23,27 @@ print(f"Number of edges: {num_edges}")
 nodes = list(graph.nodes())
 
 start_node = nodes[0]
-end_node = nodes[1020]
+end_node = nodes[41999]
+
+# For testing how long the algorithm takes to run
+start_time = time.time()
 
 # Run our implementation
+# Djikstra's version
 distances, previous = dijkstra(graph, start_node, end_node)
+
+# A* version
+# node_positions = {node: (data['x'], data['y']) for node, data in graph.nodes(data=True)}
+# distances, previous = a_star(graph, start_node, end_node, lambda n1, n2: manhattan_heuristic(n1, n2, node_positions))
+
 
 # Get the shortest path
 path = reconstruct_path(previous, start_node, end_node)
 
+# Calculate how long the algorithm actually took
+end_time = time.time()
+elapsed_time = end_time - start_time
+print(f"Time taken to calculate: {elapsed_time:.2f} seconds")
 
 print(f"Total distance: {distances[end_node]:.2f} meters")
 
@@ -47,8 +62,6 @@ fig, ax = ox.plot_graph_route(
 )
 
 plt.show()
-
-
 
 # Save the graph to a file for later reuse
 ox.save_graphml(graph, filepath="data/gainesville.graphml")
