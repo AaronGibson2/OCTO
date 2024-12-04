@@ -12,7 +12,7 @@ def dijkstra(graph, start_node: int, end_node: int) -> Tuple[Dict[int, float], D
     distances = {node: float('infinity') for node in graph.nodes()}
 
     # Set distance from starting_node to starting_node to 0
-    distances[start_node] = 0;
+    distances[start_node] = 0
 
     # Dictionary to store previous nodes for optimal path
     previous: Dict[int, Optional[int]] = {node: None for node in graph.nodes()}
