@@ -6,7 +6,7 @@ from typing import Dict, List, Set, Tuple, Optional, Mapping
 # F U N C T I O N S ------------------------------------------------
 
 # Dijkstras Algorithm Implementation
-def dijkstra(graph, start_node: int, end_node: int) -> Tuple[Dict[int, float], Dict[int,Optional[int]]]:
+def dijkstra(graph, start_node: int, end_node: int) -> Tuple[Dict[int, float], Dict[int,Optional[int]], Set[int]]:
 
     # Set all unknown node distances to infinity
     distances = {node: float('infinity') for node in graph.nodes()}
@@ -62,8 +62,8 @@ def dijkstra(graph, start_node: int, end_node: int) -> Tuple[Dict[int, float], D
                 # Push new edge into pq
                 heapq.heappush(pq, (distance, neighbor))
 
+    return distances, previous, visited
 
-    return distances, previous
 
 # Reconstructs path from start -> end using previous dict
 def reconstruct_path(previous: Mapping[int, Optional[int]], start_node: int, end_node: int) -> List[int]:
