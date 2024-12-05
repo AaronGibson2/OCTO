@@ -1,10 +1,11 @@
+# I M P O R T S   &   D E P E N D E N C I E S ----------------------
 import heapq
-from typing import Dict, List, Set, Tuple, Optional, Mapping, Callable, Any
+from typing import Dict, Set, Tuple, Optional, Callable
 
+
+# A*   A L G O R I T H M -------------------------------------------
 def a_star(graph, start_node: int, end_node: int, heuristic: Callable[[int, int], float], positions: Dict[int, Tuple[float, float]]) -> Tuple[Dict[int, float], Dict[int, Optional[int]], Set[int]]:
-    """
-    Implement A* pathfinding algorithm for OSMnx graph
-    """
+
     # Validate input nodes
     graph_nodes = set(graph.nodes())
     if start_node not in graph_nodes or end_node not in graph_nodes:
@@ -30,6 +31,7 @@ def a_star(graph, start_node: int, end_node: int, heuristic: Callable[[int, int]
     visited: Set[int] = set()
 
     while open_set:
+
         # Get the node with lowest f_score
         _, current_node = heapq.heappop(open_set)
         in_open_set.remove(current_node)
@@ -47,10 +49,11 @@ def a_star(graph, start_node: int, end_node: int, heuristic: Callable[[int, int]
             if neighbor in visited:
                 continue
 
-            # Get edge weight - use length from OSMnx graph
+            # Get edge weight using length from OSMMX
             try:
                 edge_data = graph.get_edge_data(current_node, neighbor)[0]
                 edge_length = edge_data.get('length', 1)  # in meters
+                
             except Exception as e:
                 print(f"Error getting edge data: {e}")
                 continue

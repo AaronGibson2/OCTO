@@ -1,170 +1,250 @@
 # I M P O R T S   &   D E P E N D E N C I E S ----------------------
 import matplotlib.pyplot as plt
-import osmnx as ox
-from typing import Dict, Tuple
+from matplotlib.backend_bases import MouseButton
+
 import numpy as np
+import osmnx as ox
+import os
 import time
-import random
 
 from dijkstras import dijkstra, reconstruct_path
-from a_star import a_star 
-
+from a_star import a_star
+from statWindow import create_stat_window
 
 # H E L P E R   F U N C T I O N S ----------------------------------
-def create_node_positions(graph) -> Dict[int, Tuple[float, float]]:
-    """Create a dictionary of node positions using latitude and longitude"""
-    return {node: (data['x'], data['y']) for node, data in graph.nodes(data=True)}
 
-def euclidean_heuristic(pos1, pos2, positions):
-    """Calculate Euclidean distance between two nodes using their positions"""
-    x1, y1 = positions[pos1]
-    x2, y2 = positions[pos2]
-    return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-
-def manhattan_heuristic(pos1, pos2, positions) -> float:
-    """Caclualte Manhattan distance between two nodes using grid positions"""
-    x1, y1 = positions[pos1]
-    x2, y2 = positions[pos2]
-    return abs(x1 - x2) + abs(y1 - y2)
-
+# Heuristic for A* algorithm using Haversine Formula
 def haversine_distance(pos1, pos2, positions):
     """More accurate distance calculation using Haversine formula - Accounts for Earth's curvature"""
     R = 6371000  # Earth's radius in meters
     lat1, lon1 = positions[pos1]
     lat2, lon2 = positions[pos2]
-    
+
     # Convert to radians
     lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
-    
+
     # Haversine formula
     dlat = lat2 - lat1
     dlon = lon2 - lon1
     a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2)**2
     c = 2 * np.arcsin(np.sqrt(a))
-    
+
     return R * c
 
-def improved_heuristic(node1, node2, positions):
-    """Combine haversine distance and euclidean distance"""
-    # Straight-line Haversine distance
-    haversine_dist = haversine_distance(node1, node2, positions)
-    
-    # Euclidean distance as fallback
-    euclidean_dist = euclidean_heuristic(node1, node2, positions)
-    
-    # Weighted combination
-    return 0.7 * haversine_dist + 0.3 * euclidean_dist
+# M A I N ----------------------------------------------------------
 
+def main(algorithm='Dijkstra\'s & A*', city_map='Gainesville'):
+    global fig, ax, graph_proj
 
-# M A I N   P R O G R A M ------------------------------------------
-def main():
-    # Set location and map settings
-    location = "Jacksonville, Florida, USA"
-    graph = ox.graph_from_place(location, network_type='drive')
+    # M A P   S E T U P ------------------------------------------------
+    graph_file = f"graphml_files/{city_map}.graphml"
 
+    if not os.path.exists(graph_file):
+        print(f"Graph file not found: {graph_file}")
+        return
 
-    # Get data points for display
-    num_nodes = len(graph.nodes())
-    num_edges = len(graph.edges())
+    graph = ox.load_graphml(graph_file)
+
+    # Projects the graph
+    graph_proj = ox.project_graph(graph)
+
+    # Print graph info to terminal for testing and verification
+    num_nodes = len(graph_proj.nodes())
+    num_edges = len(graph_proj.edges())
     print(f"Number of nodes: {num_nodes}")
     print(f"Number of edges: {num_edges}")
 
-    # Use two random nodes
-    nodes = list(graph.nodes())
-   
-    # Ensure we don't pick the same start and end nodes
-    while True:
-        start_node = nodes[random.randint(0, len(nodes) - 1)]
-        end_node = nodes[random.randint(0, len(nodes) - 1)]
-        
-        # Change for manual node selection
+    # Global variables for click handling
+    global selected_nodes, route_line, markers, a_route_line
+    selected_nodes = []
+    route_line = None  # Keep track of the route line
+    markers = []  # Keep track of markers
 
-        # start_node = nodes[0]
-        # end_node = nodes[11137]
-        if start_node != end_node:
-            break
+    a_route_line = None
 
-    print(f"Start Coordinate: {start_node}")
-    print(f"End Coordinate: {end_node}")
+    def clear_map():
 
-    # Create positions dictionary for heuristic
-    positions = create_node_positions(graph)
+        global selected_nodes, route_line, markers, a_route_line
+        # Clear routes
+        if route_line:
+            if isinstance(route_line, list):
+                for line in route_line:
+                    line.remove()
+            else:
+                route_line.remove()
+            route_line = None
 
-    # Create heuristic function closure
-    heuristic = lambda n1, n2: improved_heuristic(n1, n2, positions)
+        if a_route_line:
+            if isinstance(a_route_line, list):
+                for line in a_route_line:
+                    line.remove()
+            else:
+                a_route_line.remove()
+            a_route_line = None
 
-    # Run Dijkstra's Algorithm
-    # Calculate time taken to completely run Dijkstra's algorithm from start node to end node
-    dijkstra_start_time = time.time()
-    dijkstra_distances, dijkstra_previous, dijkstra_visited = dijkstra(graph, start_node, end_node)
-    dijkstra_end_time = time.time()
-    dijkstra_elapsed_time = dijkstra_end_time - dijkstra_start_time
+        # Clear markers
+        for marker in markers:
+            marker.remove()
+        markers.clear()
 
-    # Run A* Algorithm
-    # Calculate time taken to completely run A* algorithm from start node to end node
-    astar_start_time = time.time()
-    astar_distances, astar_previous, astar_visited = a_star(graph, start_node, end_node, heuristic, positions)
-    astar_end_time = time.time()
-    astar_elapsed_time = astar_end_time - astar_start_time
+        # Clear selected nodes
+        selected_nodes.clear()
 
-    # Get the shortest paths
-    dijkstra_path = reconstruct_path(dijkstra_previous, start_node, end_node)
-    astar_path = reconstruct_path(astar_previous, start_node, end_node)
+        # Clear legend
+        ax.legend_.remove() if ax.get_legend() else None
 
-    # Print Performance Comparison
-    print("\n--- Performance Comparison ---")
-    print(f"Dijkstra's Algorithm:")
-    print(f"  Time taken: {dijkstra_elapsed_time:.6f} seconds")
-    print(f"  Total distance: {dijkstra_distances[end_node]:.2f} meters")
-    print(f"  Nodes in path: {len(dijkstra_path)}")
-    print(f"  Nodes visited: {len(dijkstra_visited)}")
+        plt.draw()
 
-    print("\nA* Algorithm:")
-    print(f"  Time taken: {astar_elapsed_time:.6f} seconds")
-    print(f"  Total distance: {astar_distances[end_node]:.2f} meters")
-    print(f"  Nodes in path: {len(astar_path)}")
-    print(f"  Nodes visited: {len(astar_visited)}")
+    def on_key(event):
+        global selected_nodes, route_line, a_route_line
 
-    # Verify path consistency between algorithms
-    print("\n--- Path Verification ---")
-    if dijkstra_distances[end_node] == astar_distances[end_node]:
-        print("Path distances match ✓")
-    else:
-        print("Path distances do NOT match! ✗")
-        print(f"Dijkstra distance: {dijkstra_distances[end_node]}")
-        print(f"A* distance: {astar_distances[end_node]}")
+        # Space key to trace route
+        if event.key == ' ' and len(selected_nodes) == 2:
+            start_node, end_node = selected_nodes
 
-    # Visualize both paths
-   
-    # Dijkstra Path
-    fig1, ax1 = ox.plot_graph_route(
-        graph,
-        dijkstra_path,
-        route_color='red',
-        route_linewidth=6,
-        route_alpha=0.5,
+            # Get node positions for A* heuristic
+            positions = {node: (data['x'], data['y'])
+                        for node, data in graph.nodes(data=True)}
+
+            heuristic = lambda n1, n2: haversine_distance(n1, n2, positions)
+
+            # Run Dijkstra's Algorithm
+            # Calculate time taken to completely run Dijkstra's algorithm from start node to end node
+            dijkstra_start_time = time.time()
+            dijkstra_distances, dijkstra_previous, djikstra_visited = dijkstra(graph, start_node, end_node)
+            dijkstra_end_time = time.time()
+            dijkstra_nodes_visited = len(djikstra_visited)
+            dijkstra_elapsed_time = dijkstra_end_time - dijkstra_start_time
+
+            # Run A* Algorithm
+            # Calculate time taken to completely run A* algorithm from start node to end node
+            astar_start_time = time.time()
+            astar_distances, astar_previous, astar_visited = a_star(graph, start_node, end_node, heuristic, positions)
+            astar_end_time = time.time()
+            astar_nodes_visited = len(astar_visited)
+            astar_elapsed_time = astar_end_time - astar_start_time
+
+            # Get the shortest paths
+            dijkstra_path = reconstruct_path(dijkstra_previous, start_node, end_node)
+            astar_path = reconstruct_path(astar_previous, start_node, end_node)
+
+            stat_window = create_stat_window(
+                elapsed_time_dijkstra=dijkstra_elapsed_time,
+                elapsed_time_aStar=astar_elapsed_time,
+                num_nodes_visited_dijkstra=dijkstra_nodes_visited,
+                num_nodes_visited_aStar=astar_nodes_visited,
+                distance_dijkstra=dijkstra_distances[end_node],
+                distance_aStar=astar_distances[end_node])
+
+            if dijkstra_distances[end_node] != float('inf'):
+                # Clear previous route if it exists
+                if route_line:
+                    route_line.remove()
+
+                # Plot the Dijkstra's route
+                route_coords = []
+                for node in dijkstra_path:
+                    node_data = graph_proj.nodes[node]
+                    route_coords.append((node_data['x'], node_data['y']))
+
+                x_coords, y_coords = zip(*route_coords)
+
+                # Bright orange route
+                route_line = ax.plot(x_coords, y_coords,
+                                   color='#FF8C00',  # Bright orange
+                                   linewidth=1,
+                                   alpha=0.8)[0]
+
+                # Plot the A* route
+                a_route_coords = []
+                for node in astar_path:
+                    a_node_data = graph_proj.nodes[node]
+                    a_route_coords.append((a_node_data['x'], a_node_data['y']))
+
+                a_x_coords, a_y_coords = zip(*a_route_coords)
+
+                # Bright blue route
+                a_route_line = ax.plot(a_x_coords, a_y_coords,
+                                   color='#0096FF',  # Bright blue
+                                   linewidth=1,
+                                   alpha=0.8)[0]
+
+                # Print values to terminal for testing
+                print(f"Total Dijkstra's distance: {dijkstra_distances[end_node]:.2f} meters")
+                print(f"Total A* distance: {astar_distances[end_node]:.2f} meters")
+            else:
+                print("No valid path found between selected points!")
+
+            plt.draw()
+
+        # X key to clear map
+        elif event.key == 'x':
+            clear_map()
+
+    def on_click(event):
+        global selected_nodes, graph_proj, route_line, markers
+        if event.button is MouseButton.LEFT and event.inaxes == ax:
+            # Get the clicked coordinates
+            x, y = event.xdata, event.ydata
+
+            # Find the nearest node to the clicked point
+            nearest_node = ox.nearest_nodes(graph_proj, x, y)
+
+            if len(selected_nodes) < 2:
+                selected_nodes.append(nearest_node)
+                # Bright orange markers
+                marker = plt.plot(x, y, 'o', color='#FF8C00', markersize=5, alpha=0.9)[0]
+                markers.append(marker)  # Store marker reference
+                plt.draw()
+
+    # Close any existing figures
+    plt.close('all')
+
+    # Configure plot settings
+    plt.style.use('dark_background')
+    plt.rcParams.update({
+        'figure.facecolor': 'black',
+        'axes.facecolor': 'black',
+        'savefig.facecolor': 'black',
+    })
+
+    # Set algorithm name
+    algorithm_name = "Dijkstra's & A*"
+
+    # Create the plot with background map - with minimal edge width
+    fig, ax = ox.plot_graph(
+        graph_proj,
         node_size=0,
-        edge_color='blue',
-        edge_linewidth=1,
+        edge_color='white',     # White edges
+        edge_linewidth=0.3,
         edge_alpha=0.5,
-        bgcolor='white'
+        bgcolor='black',        # Black background
+        show=False,
+        figsize=(8, 8)        # Square figure size
     )
+
+    fig.canvas.manager.set_window_title(f"{city_map.capitalize()} - {algorithm_name}")
+
+    # Remove the attribution text
+    ax.text(0.99, 0.01, '', transform=ax.transAxes, ha='right', va='bottom')
+
+    # Hide all axes text and ticks
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    # Remove all margins and spacing
+    plt.subplots_adjust(left=0, right=1, top=0.98, bottom=0)
+
+    # Connect the events
+    fig.canvas.mpl_connect('button_press_event', on_click)
+    fig.canvas.mpl_connect('key_press_event', on_key)
+
+    # Ensure the plot fills the axes
+    ax.set_aspect('auto')
+
     plt.show()
 
-    # A* Path
-    fig2, ax2 = ox.plot_graph_route(
-        graph,
-        astar_path,
-        route_color='green',
-        route_linewidth=6,
-        route_alpha=0.5,
-        node_size=0,
-        edge_color='blue',
-        edge_linewidth=1,
-        edge_alpha=0.5,
-        bgcolor='white'
-    )
-    plt.show()
-
+# M A I N ----------------------------------------------------------
 if __name__ == "__main__":
-    main()
+    # If run directly, use defaults
+    main(algorithm='dijkstra', city_map='Gainesville')

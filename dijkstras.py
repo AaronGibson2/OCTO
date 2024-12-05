@@ -17,7 +17,7 @@ def dijkstra(graph, start_node: int, end_node: int) -> Tuple[Dict[int, float], D
     # Dictionary to store previous nodes for optimal path
     previous: Dict[int, Optional[int]] = {node: None for node in graph.nodes()}
 
-    # Priority queue to store distance to node pairs as we discover
+    # Priority queu to store distance to node pairs as we discover
     # Add one item start_node to start_node distance of 0
     pq = [(0, start_node)]
 
@@ -62,8 +62,8 @@ def dijkstra(graph, start_node: int, end_node: int) -> Tuple[Dict[int, float], D
                 # Push new edge into pq
                 heapq.heappush(pq, (distance, neighbor))
 
-    return distances, previous, visited
 
+    return distances, previous, visited
 
 # Reconstructs path from start -> end using previous dict
 def reconstruct_path(previous: Mapping[int, Optional[int]], start_node: int, end_node: int) -> List[int]:
